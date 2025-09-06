@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Netflix Sync",
+  "version": "2.0",
+  "description": "Synchronize Netflix playback across multiple browsers using WebRTC",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://*.netflix.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.netflix.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  }
+}
