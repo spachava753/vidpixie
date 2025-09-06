@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: Arial, sans-serif;
+    }
+    h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    .section {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      font-size: 14px;
+      cursor: pointer;
+      background-color: #e50914;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #f40612;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background-color: #666;
+    }
+    button.secondary:hover {
+      background-color: #888;
+    }
+    .status {
+      margin-top: 10px;
+      padding: 8px;
+      text-align: center;
+      font-size: 12px;
+      background: white;
+      border-radius: 4px;
+    }
+    .status.connected {
+      color: green;
+      border: 1px solid green;
+    }
+    .status.disconnected {
+      color: red;
+      border: 1px solid red;
+    }
+    .peer-count {
+      font-size: 11px;
+      color: #666;
+      margin-top: 5px;
+    }
+    .room-display {
+      font-size: 11px;
+      color: #333;
+      word-break: break-all;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <h3>Netflix Sync</h3>
+  
+  <div class="section">
+    <input type="text" id="serverUrl" placeholder="ws://localhost:8080" />
+    <div class="status disconnected" id="connectionStatus">Disconnected</div>
+    <button id="connectBtn">Connect to Server</button>
+    <button id="disconnectBtn" class="secondary" style="display: none;">Disconnect</button>
+  </div>
+  
+  <div class="section">
+    <input type="text" id="roomInput" placeholder="Enter room ID" />
+    <button id="joinRoomBtn" disabled>Join Room</button>
+    <button id="leaveRoomBtn" class="secondary" disabled>Leave Room</button>
+    <div class="room-display" id="roomDisplay"></div>
+    <div class="peer-count" id="peerCount"></div>
+    <div class="status" id="syncStatus" style="margin-top: 8px;">Not in room</div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
