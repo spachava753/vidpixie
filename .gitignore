@@ -24,6 +24,7 @@
 # Allow fly.io deployment files
 !signaling-server/fly.toml
 !signaling-server/Dockerfile
+!signaling-server/.dockerignore
 
 # But ignore node_modules in signaling server
 signaling-server/node_modules/
