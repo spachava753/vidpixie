@@ -1,0 +1,36 @@
+# Ignore everything by default
+*
+
+# Allow git files
+!.gitignore
+!README.md
+
+# Allow Chrome Extension files
+!manifest.json
+!background.js
+!content.js
+!popup.html
+!popup.js
+!icon.png
+!icon.svg
+
+# Allow signaling server directory and its contents
+!signaling-server/
+!signaling-server/package.json
+!signaling-server/pnpm-lock.yaml
+!signaling-server/server.js
+
+# But ignore node_modules in signaling server
+signaling-server/node_modules/
+
+# Ignore IDE and system files (even if explicitly allowed above)
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Ignore CPE specific files
+.cpe*
+prompt.md
