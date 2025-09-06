@@ -4,6 +4,7 @@
 # Allow git files
 !.gitignore
 !README.md
+!AGENT.md
 
 # Allow Chrome Extension files
 !manifest.json
