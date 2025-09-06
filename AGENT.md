@@ -130,6 +130,13 @@ wscat -c ws://localhost:8080
 
 ## Code Style and Conventions
 
+### Version Control
+
+- **Commit Format**: Always use Conventional Commits format (https://www.conventionalcommits.org/)
+  - Examples: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
+  - Include scope when relevant: `feat(server):`, `fix(extension):`, `docs(readme):`
+  - Breaking changes: Add `!` after type/scope and `BREAKING CHANGE:` in footer
+
 ### JavaScript Style
 
 - **NO COMMENTS**: Do not add code comments unless specifically requested
