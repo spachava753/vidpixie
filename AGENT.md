@@ -19,6 +19,8 @@ A Chrome extension that synchronizes Netflix video playback across multiple brow
 │   ├── package.json   # Node.js dependencies
 │   ├── pnpm-lock.yaml # pnpm lock file
 │   ├── server.js     # WebSocket signaling server
+│   ├── fly.toml      # Fly.io deployment configuration
+│   ├── Dockerfile    # Docker container for Fly.io deployment
 │   └── node_modules/ # Dependencies (gitignored)
 └── README.md        # User documentation
 ```
@@ -39,12 +41,63 @@ A Chrome extension that synchronizes Netflix video playback across multiple brow
 cd signaling-server
 pnpm install
 
-# Start server (default port 8080)
+# Start server locally (default port 8080)
 pnpm start
 
 # Start with custom port
 PORT=3000 pnpm start
 ```
+
+### Fly.io Deployment
+
+**Fly.io** is a platform for running full-stack apps and databases close to users globally. The signaling server is configured for deployment on Fly.io to provide a production WebSocket server with automatic SSL/TLS, global distribution, and auto-scaling.
+
+**IMPORTANT**: Never deploy to Fly.io unless the user explicitly requests deployment. Always ask for confirmation before running any deployment commands.
+
+#### Fly CLI Commands
+
+```bash
+# Install fly CLI (if not installed)
+curl -L https://fly.io/install.sh | sh
+
+# Login to Fly.io (if not logged in)
+fly auth login
+
+# Deploy the signaling server (from signaling-server directory)
+cd signaling-server
+fly deploy
+
+# Check deployment status
+fly status
+
+# View logs
+fly logs
+
+# Scale the application
+fly scale count 2  # Run 2 instances
+
+# Open deployed app in browser
+fly open
+
+# SSH into running instance
+fly ssh console
+
+# View app configuration
+fly config show
+
+# Destroy deployment (careful!)
+fly apps destroy vidpixe-signaling-server
+```
+
+#### Deployment Configuration
+
+- **App Name**: `vidpixe-signaling-server`
+- **Primary Region**: `iad` (US East - Ashburn, Virginia)
+- **Internal Port**: 8080 (WebSocket server port)
+- **Auto-scaling**: Configured with auto start/stop, min 0 machines
+- **Resources**: 1GB RAM, 1 shared CPU
+- **Force HTTPS**: Enabled for WSS connections
+- **Dockerfile**: Multi-stage build with pnpm for optimized image size
 
 ### Chrome Extension
 
@@ -206,24 +259,36 @@ document.querySelector('video').paused
 const rateLimit = new Map(); // Implement rate limiting
 const AUTH_TOKEN = process.env.AUTH_TOKEN; // Add authentication
 
-// Use WSS in production
-wss://your-domain.com:443
+// Use WSS in production (automatic with Fly.io)
+wss://vidpixe-signaling-server.fly.dev
 
 // Add CORS headers if needed
 app.use(cors({ origin: 'chrome-extension://YOUR_EXTENSION_ID' }));
 ```
+
+### Fly.io Production URL
+
+Once deployed, the WebSocket server will be available at:
+- **WebSocket URL**: `wss://vidpixe-signaling-server.fly.dev`
+- **HTTPS forced**: Automatically upgrades to WSS for secure connections
+- **Auto-SSL**: Fly.io provides automatic SSL certificates
 
 ## Configuration
 
 ### Environment Variables
 
 ```bash
-# Server
+# Server (local development)
 PORT=8080                    # WebSocket server port
 NODE_ENV=development        # Environment mode
 
+# Server (Fly.io production)
+PORT=8080                    # Internal port (configured in fly.toml)
+NODE_ENV=production         # Set automatically by Dockerfile
+
 # Extension (in popup.js)
-DEFAULT_SERVER_URL=ws://localhost:8080
+DEFAULT_SERVER_URL=ws://localhost:8080  # Development
+# DEFAULT_SERVER_URL=wss://vidpixe-signaling-server.fly.dev  # Production
 ```
 
 ### Chrome Storage

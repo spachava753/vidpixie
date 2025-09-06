@@ -21,6 +21,10 @@
 !signaling-server/pnpm-lock.yaml
 !signaling-server/server.js
 
+# Allow fly.io deployment files
+!signaling-server/fly.toml
+!signaling-server/Dockerfile
+
 # But ignore node_modules in signaling server
 signaling-server/node_modules/
 
