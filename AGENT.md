@@ -17,6 +17,7 @@ A Chrome extension that synchronizes Netflix video playback across multiple brow
 ├── icon.svg          # Extension icon source
 ├── signaling-server/
 │   ├── package.json   # Node.js dependencies
+│   ├── pnpm-lock.yaml # pnpm lock file
 │   ├── server.js     # WebSocket signaling server
 │   └── node_modules/ # Dependencies (gitignored)
 └── README.md        # User documentation
@@ -36,13 +37,13 @@ A Chrome extension that synchronizes Netflix video playback across multiple brow
 ```bash
 # Install dependencies
 cd signaling-server
-npm install
+pnpm install
 
 # Start server (default port 8080)
-npm start
+pnpm start
 
 # Start with custom port
-PORT=3000 npm start
+PORT=3000 pnpm start
 ```
 
 ### Chrome Extension
@@ -63,7 +64,7 @@ PORT=3000 npm start
 
 ```bash
 # Watch server logs
-cd signaling-server && npm start
+cd signaling-server && pnpm start
 
 # Test WebSocket connection
 wscat -c ws://localhost:8080
@@ -249,11 +250,12 @@ const HEARTBEAT_TIMEOUT = 60000;     // Disconnect timeout
 
 ## Development Tips
 
-1. **Server First**: Always start signaling server before testing
-2. **Fresh Reload**: Reload extension AND Netflix tab after changes
-3. **Multiple Profiles**: Use Chrome profiles for testing multiple users
-4. **Network Tab**: Monitor WebSocket frames in DevTools Network tab
-5. **Service Worker**: Check background script logs for connection issues
+1. **Package Manager**: Use `pnpm` for faster installs and disk efficiency
+2. **Server First**: Always start signaling server before testing
+3. **Fresh Reload**: Reload extension AND Netflix tab after changes
+4. **Multiple Profiles**: Use Chrome profiles for testing multiple users
+5. **Network Tab**: Monitor WebSocket frames in DevTools Network tab
+6. **Service Worker**: Check background script logs for connection issues
 
 ## Common Issues and Solutions
 
