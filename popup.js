@@ -42,7 +42,7 @@ async function updateStatus() {
     
     if (currentRoom) {
       roomDisplay.textContent = `Room: ${currentRoom}`;
-      peerCount.textContent = `${response.peersCount} peer(s) connected`;
+      peerCount.textContent = '';
       leaveRoomBtn.disabled = false;
       syncStatus.textContent = 'Syncing enabled';
       syncStatus.className = 'status connected';
@@ -140,7 +140,7 @@ joinRoomBtn.addEventListener('click', async () => {
         
         setTimeout(() => {
           chrome.runtime.sendMessage({
-            type: 'request-room-state'
+            type: 'request-state'
           });
         }, 500);
       }

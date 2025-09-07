@@ -108,7 +108,7 @@ function handlePlay() {
   const currentTime = video.currentTime;
   
   chrome.runtime.sendMessage({
-    type: 'local-sync-event',
+    type: 'sync-event',
     event: {
       action: 'play',
       currentTime: currentTime,
@@ -129,7 +129,7 @@ function handlePause() {
   const currentTime = video.currentTime;
   
   chrome.runtime.sendMessage({
-    type: 'local-sync-event',
+    type: 'sync-event',
     event: {
       action: 'pause',
       currentTime: currentTime,
@@ -175,7 +175,7 @@ function handleSeek() {
   lastKnownTime = currentTime;
   
   chrome.runtime.sendMessage({
-    type: 'local-sync-event',
+    type: 'sync-event',
     event: {
       action: action,
       currentTime: currentTime,

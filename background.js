@@ -1,5 +1,4 @@
 let ws = null;
-let peers = new Map();
 let clientId = null;
 let currentRoomId = null;
 let isConnected = false;
@@ -7,11 +6,6 @@ let serverUrl = null;
 let reconnectInterval = null;
 let pingInterval = null;
 let shouldReconnect = false;
-
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' }
-];
 
 async function getServerUrl() {
   const result = await chrome.storage.local.get(['serverUrl']);
@@ -54,31 +48,25 @@ async function connectToSignalingServer(customUrl = null) {
         reject(error);
       };
       
-      ws.onclose = (event) => {
-        console.log('Disconnected from signaling server. Code:', event.code, 'Reason:', event.reason);
+      ws.onclose = () => {
+        console.log('Disconnected from signaling server');
         isConnected = false;
-        clientId = null;
+        ws = null;
+        stopPingInterval();
+        
         const prevRoomId = currentRoomId;
         currentRoomId = null;
-        cleanupPeers();
-        stopPingInterval();
         
         if (shouldReconnect && !reconnectInterval) {
           console.log('Will attempt to reconnect...');
           reconnectInterval = setInterval(async () => {
-            console.log('Attempting to reconnect...');
             try {
               await connectToSignalingServer();
-              if (prevRoomId && isConnected) {
-                console.log('Reconnected! Rejoining room:', prevRoomId);
-                setTimeout(() => {
-                  if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                      type: 'join-room',
-                      roomId: prevRoomId
-                    }));
-                  }
-                }, 500);
+              if (prevRoomId && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'join-room',
+                  roomId: prevRoomId
+                }));
               }
             } catch (error) {
               console.log('Reconnection failed, will retry...');
@@ -88,6 +76,7 @@ async function connectToSignalingServer(customUrl = null) {
       };
     } catch (error) {
       console.error('Failed to create WebSocket:', error);
+      isConnected = false;
       reject(error);
     }
   });
@@ -95,6 +84,7 @@ async function connectToSignalingServer(customUrl = null) {
 
 function startPingInterval() {
   stopPingInterval();
+  
   pingInterval = setInterval(() => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'ping' }));
@@ -127,174 +117,36 @@ async function handleSignalingMessage(data) {
       
     case 'room-joined':
       currentRoomId = data.roomId;
-      for (const peerId of data.otherClients) {
-        await createPeerConnection(peerId, true);
-      }
+      console.log('Joined room:', currentRoomId);
       break;
       
     case 'peer-joined':
-      if (data.peerId !== clientId) {
-        await createPeerConnection(data.peerId, false);
-      }
+      console.log('Peer joined:', data.peerId);
       break;
       
     case 'peer-left':
-      closePeerConnection(data.peerId);
-      break;
-      
-    case 'offer':
-      await handleOffer(data);
-      break;
-      
-    case 'answer':
-      await handleAnswer(data);
-      break;
-      
-    case 'ice-candidate':
-      await handleIceCandidate(data);
+      console.log('Peer left:', data.peerId);
       break;
       
     case 'sync-event':
       if (data.senderId !== clientId) {
-        await broadcastToTabs(data.event);
-      }
-      break;
-      
-    case 'state-request':
-      if (data.senderId !== clientId) {
-        await handleStateRequest(data.senderId);
-      }
-      break;
-      
-    case 'state-response':
-      if (data.senderId !== clientId) {
-        await broadcastToTabs({
-          action: 'sync-to-state',
-          state: data.state
-        });
+        if (data.event.action === 'state-request') {
+          await handleStateRequest(data.senderId);
+        } else if (data.event.action === 'state-response') {
+          await broadcastToTabs({
+            action: 'sync-to-state',
+            state: data.event.state
+          });
+        } else {
+          await broadcastToTabs(data.event);
+        }
       }
       break;
   }
-}
-
-async function createPeerConnection(peerId, isInitiator) {
-  if (peers.has(peerId)) {
-    return peers.get(peerId);
-  }
-  
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  const dataChannel = isInitiator 
-    ? pc.createDataChannel('sync', { ordered: true })
-    : null;
-  
-  const peer = {
-    id: peerId,
-    connection: pc,
-    dataChannel: dataChannel,
-    isConnected: false
-  };
-  
-  pc.onicecandidate = (event) => {
-    if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'ice-candidate',
-        targetId: peerId,
-        candidate: event.candidate
-      }));
-    }
-  };
-  
-  pc.ondatachannel = (event) => {
-    if (!isInitiator) {
-      peer.dataChannel = event.channel;
-      setupDataChannel(peer);
-    }
-  };
-  
-  if (isInitiator) {
-    setupDataChannel(peer);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    
-    ws.send(JSON.stringify({
-      type: 'offer',
-      targetId: peerId,
-      offer: offer
-    }));
-  }
-  
-  peers.set(peerId, peer);
-  return peer;
-}
-
-function setupDataChannel(peer) {
-  if (!peer.dataChannel) return;
-  
-  peer.dataChannel.onopen = () => {
-    peer.isConnected = true;
-    console.log(`Data channel opened with peer ${peer.id}`);
-  };
-  
-  peer.dataChannel.onclose = () => {
-    peer.isConnected = false;
-    console.log(`Data channel closed with peer ${peer.id}`);
-  };
-  
-  peer.dataChannel.onmessage = async (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === 'sync-event') {
-      await broadcastToTabs(data.event);
-    }
-  };
-}
-
-async function handleOffer(data) {
-  const peer = await createPeerConnection(data.senderId, false);
-  await peer.connection.setRemoteDescription(data.offer);
-  const answer = await peer.connection.createAnswer();
-  await peer.connection.setLocalDescription(answer);
-  
-  ws.send(JSON.stringify({
-    type: 'answer',
-    targetId: data.senderId,
-    answer: answer
-  }));
-}
-
-async function handleAnswer(data) {
-  const peer = peers.get(data.senderId);
-  if (peer) {
-    await peer.connection.setRemoteDescription(data.answer);
-  }
-}
-
-async function handleIceCandidate(data) {
-  const peer = peers.get(data.senderId);
-  if (peer) {
-    await peer.connection.addIceCandidate(data.candidate);
-  }
-}
-
-function closePeerConnection(peerId) {
-  const peer = peers.get(peerId);
-  if (peer) {
-    if (peer.dataChannel) {
-      peer.dataChannel.close();
-    }
-    peer.connection.close();
-    peers.delete(peerId);
-  }
-}
-
-function cleanupPeers() {
-  for (const [peerId, peer] of peers) {
-    closePeerConnection(peerId);
-  }
-  peers.clear();
 }
 
 async function broadcastToTabs(event) {
-  const tabs = await chrome.tabs.query({ url: 'https://*.netflix.com/*' });
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   for (const tab of tabs) {
     chrome.tabs.sendMessage(tab.id, {
       type: 'sync-event',
@@ -304,7 +156,7 @@ async function broadcastToTabs(event) {
 }
 
 async function handleStateRequest(requesterId) {
-  const tabs = await chrome.tabs.query({ url: 'https://*.netflix.com/*' });
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tabs.length > 0) {
     chrome.tabs.sendMessage(tabs[0].id, {
       type: 'get-video-state'
@@ -313,9 +165,9 @@ async function handleStateRequest(requesterId) {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
             type: 'sync-event',
+            targetId: requesterId,
             event: {
               action: 'state-response',
-              targetId: requesterId,
               state: response.state
             }
           }));
@@ -325,101 +177,93 @@ async function handleStateRequest(requesterId) {
   }
 }
 
-function broadcastToPeers(event) {
+function broadcastSyncEvent(event) {
   if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
     ws.send(JSON.stringify({
       type: 'sync-event',
       event: event
     }));
   }
-  
-  for (const [peerId, peer] of peers) {
-    if (peer.isConnected && peer.dataChannel && peer.dataChannel.readyState === 'open') {
-      peer.dataChannel.send(JSON.stringify({
-        type: 'sync-event',
-        event: event
-      }));
-    }
-  }
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  (async () => {
-    try {
-      switch(request.type) {
-        case 'connect':
-          await connectToSignalingServer(request.serverUrl);
-          sendResponse({ success: true, isConnected });
-          break;
-          
-        case 'disconnect':
-          shouldReconnect = false;
-          if (reconnectInterval) {
-            clearInterval(reconnectInterval);
-            reconnectInterval = null;
-          }
-          stopPingInterval();
-          if (ws) {
-            ws.close();
-            ws = null;
-          }
-          cleanupPeers();
-          isConnected = false;
-          currentRoomId = null;
-          sendResponse({ success: true });
-          break;
-          
-        case 'join-room':
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'join-room',
-              roomId: request.roomId
-            }));
-            sendResponse({ success: true });
-          } else {
-            sendResponse({ success: false, error: 'Not connected' });
-          }
-          break;
-          
-        case 'leave-room':
-          if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            ws.send(JSON.stringify({
-              type: 'leave-room'
-            }));
-            currentRoomId = null;
-            cleanupPeers();
-          }
-          sendResponse({ success: true });
-          break;
-          
-        case 'local-sync-event':
-          broadcastToPeers(request.event);
-          sendResponse({ success: true });
-          break;
-          
-        case 'get-status':
-          sendResponse({
-            isConnected,
-            roomId: currentRoomId,
-            peersCount: peers.size
-          });
-          break;
-          
-        case 'request-room-state':
-          if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            ws.send(JSON.stringify({
-              type: 'sync-event',
-              event: {
-                action: 'state-request'
-              }
-            }));
-          }
-          sendResponse({ success: true });
-          break;
+  if (request.type === 'sync-event' && currentRoomId) {
+    broadcastSyncEvent(request.event);
+  } else if (request.type === 'connect') {
+    const connect = async () => {
+      try {
+        await connectToSignalingServer(request.serverUrl);
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
       }
-    } catch (error) {
-      sendResponse({ success: false, error: error.message });
+    };
+    connect();
+    return true;
+  } else if (request.type === 'disconnect') {
+    shouldReconnect = false;
+    if (reconnectInterval) {
+      clearInterval(reconnectInterval);
+      reconnectInterval = null;
     }
-  })();
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+    currentRoomId = null;
+    clientId = null;
+    stopPingInterval();
+    sendResponse({ success: true });
+  } else if (request.type === 'join-room') {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      if (currentRoomId && currentRoomId !== request.roomId) {
+        ws.send(JSON.stringify({
+          type: 'leave-room'
+        }));
+      }
+      
+      ws.send(JSON.stringify({
+        type: 'join-room',
+        roomId: request.roomId
+      }));
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'Not connected to server' });
+    }
+  } else if (request.type === 'leave-room') {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'leave-room'
+      }));
+      currentRoomId = null;
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'Not connected to server' });
+    }
+  } else if (request.type === 'get-status') {
+    sendResponse({
+      isConnected: isConnected,
+      roomId: currentRoomId,
+      serverUrl: serverUrl,
+      clientId: clientId
+    });
+  } else if (request.type === 'request-state') {
+    if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
+      ws.send(JSON.stringify({
+        type: 'sync-event',
+        event: {
+          action: 'state-request'
+        }
+      }));
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'Not in a room' });
+    }
+  }
+  
   return true;
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('Video Sync Extension installed');
 });

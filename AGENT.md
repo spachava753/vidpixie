@@ -1,15 +1,15 @@
-# Netflix Sync Extension - Agent Documentation
+# Video Sync Extension - Agent Documentation
 
 ## Project Overview
 
-A Chrome extension that synchronizes Netflix video playback across multiple browsers using WebRTC for peer-to-peer communication and WebSocket for signaling. Users can join rooms and watch Netflix content in perfect sync with automatic play/pause/seek synchronization.
+A Chrome extension that synchronizes video playback across multiple browsers using WebSocket connections. Works with Netflix, YouTube, and other video streaming platforms. Users can join rooms and watch video content in perfect sync with automatic play/pause/seek synchronization.
 
 ## Project Structure and Organization
 
 ```
 .
 ├── manifest.json           # Chrome extension manifest (v3)
-├── background.js          # Service worker handling WebRTC and WebSocket connections
+├── background.js          # Service worker handling WebSocket connections
 ├── content.js            # Content script for Netflix video detection and control
 ├── popup.html           # Extension popup UI
 ├── popup.js            # Popup interaction logic
@@ -18,7 +18,7 @@ A Chrome extension that synchronizes Netflix video playback across multiple brow
 ├── signaling-server/
 │   ├── package.json   # Node.js dependencies
 │   ├── pnpm-lock.yaml # pnpm lock file
-│   ├── server.js     # WebSocket signaling server
+│   ├── server.js     # WebSocket server for room management and message relay
 │   ├── fly.toml      # Fly.io deployment configuration
 │   ├── Dockerfile    # Docker container for Fly.io deployment
 │   └── node_modules/ # Dependencies (gitignored)
@@ -27,10 +27,10 @@ A Chrome extension that synchronizes Netflix video playback across multiple brow
 
 ### Key Components
 
-- **Chrome Extension**: Handles video synchronization and peer connections
-- **Signaling Server**: WebSocket server for peer discovery and WebRTC negotiation
+- **Chrome Extension**: Handles video synchronization through WebSocket
+- **WebSocket Server**: Manages rooms and relays sync messages between clients
 - **Content Script**: Monitors Netflix video events and applies remote commands
-- **Background Service Worker**: Manages WebRTC connections and message routing
+- **Background Service Worker**: Manages WebSocket connection and message routing
 
 ## Build, Test, and Development Commands
 
@@ -174,10 +174,8 @@ wscat -c ws://localhost:8080
 
 ```
 Netflix Tab ← Content Script ← → Background Service Worker ← → WebSocket Server
-                                            ↓ ↑
-                                     WebRTC Data Channel
-                                            ↓ ↑
-                                      Other Peers
+                                                                      ↓ ↑
+                                                              Other Clients in Room
 ```
 
 ### Connection Management
@@ -194,12 +192,12 @@ Netflix Tab ← Content Script ← → Background Service Worker ← → WebSock
 - **Time Tracking**: Maintain `lastKnownTime` for accurate skip detection
 - **Local Action Flag**: Prevent feedback loops with `isLocalAction` flag
 
-### WebRTC Implementation
+### WebSocket Implementation
 
-- **STUN Servers**: Google's public STUN servers for NAT traversal
-- **Data Channels**: Ordered, reliable channels for sync events
-- **Fallback**: WebSocket relay when P2P connection fails
-- **Peer Management**: Map of peer connections per room
+- **Connection**: Persistent WebSocket connection to server
+- **Message Relay**: All sync events relayed through server
+- **Room Isolation**: Messages only sent to clients in same room
+- **Auto-reconnect**: Automatic reconnection with room rejoin
 
 ## Testing Guidelines
 
@@ -311,7 +309,6 @@ DEFAULT_SERVER_URL=ws://localhost:8080  # Development
 
 ```javascript
 // background.js
-const ICE_SERVERS = [...];           // STUN/TURN servers
 const RECONNECT_INTERVAL = 5000;     // Reconnection delay
 const PING_INTERVAL = 25000;         // Client ping frequency
 
@@ -344,4 +341,3 @@ const HEARTBEAT_TIMEOUT = 60000;     // Disconnect timeout
 - @README.md - User documentation and setup instructions
 - @manifest.json - Extension configuration and permissions
 - Chrome Extension Docs: https://developer.chrome.com/docs/extensions/mv3/
-- WebRTC Guide: https://webrtc.org/getting-started/overview

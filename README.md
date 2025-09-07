@@ -1,6 +1,6 @@
 # Netflix Sync Chrome Extension
 
-Synchronize Netflix playback across multiple browsers using WebRTC.
+Synchronize Netflix playback across multiple browsers using WebSocket connections.
 
 ## Setup
 
@@ -49,14 +49,13 @@ The server will run on `http://localhost:8080`
 - **Skip Forward/Backward Sync**: Detects and syncs 10s/30s skip actions
 - **Netflix Controls Sync**: Syncs skip intro, skip recap, and skip credits actions
 - **Keyboard Shortcuts**: Arrow keys for skipping are detected and synced
-- **WebRTC P2P**: Uses WebRTC data channels for low-latency synchronization
-- **Fallback to WebSocket**: If P2P connection fails, falls back to WebSocket relay through server
+- **Real-time Sync**: Uses WebSocket for low-latency synchronization
 - **Room-based**: Multiple groups can sync independently using different room IDs
 
 ## Architecture
 
-- **Signaling Server**: WebSocket server for WebRTC connection establishment
-- **Background Service Worker**: Manages WebRTC connections and message routing
+- **WebSocket Server**: Handles room management and message relay
+- **Background Service Worker**: Manages WebSocket connection and message routing
 - **Content Script**: Detects Netflix video events and applies remote commands
 - **Popup**: User interface for connection and room management
 

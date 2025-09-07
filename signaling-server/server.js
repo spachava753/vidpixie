@@ -59,13 +59,6 @@ wss.on('connection', (ws) => {
           handleLeaveRoom(ws, client);
           break;
           
-        case 'offer':
-        case 'answer':
-        case 'ice-candidate':
-          console.log(`[${getTimestamp()}] 🔄 WebRTC ${data.type} from ${client.id} to ${data.targetId}`);
-          forwardSignalingMessage(ws, client, data);
-          break;
-          
         case 'sync-event':
           let eventDescription = data.event.action;
           if (data.event.action === 'state-request') {
@@ -81,9 +74,9 @@ wss.on('connection', (ws) => {
           }
           console.log(`[${getTimestamp()}] 📺 Sync event in room ${client.roomId}: ${eventDescription} from ${client.id}`);
           
-          if (data.event.targetId) {
+          if (data.targetId) {
             for (const [otherWs, otherClient] of clients) {
-              if (otherClient.id === data.event.targetId && otherClient.roomId === client.roomId) {
+              if (otherClient.id === data.targetId && otherClient.roomId === client.roomId) {
                 otherWs.send(JSON.stringify({
                   type: 'sync-event',
                   event: data.event,
@@ -181,20 +174,6 @@ function handleLeaveRoom(ws, client) {
   });
   
   client.roomId = null;
-}
-
-function forwardSignalingMessage(ws, client, data) {
-  if (!client.roomId || !data.targetId) return;
-  
-  for (const [otherWs, otherClient] of clients) {
-    if (otherClient.id === data.targetId && otherClient.roomId === client.roomId) {
-      otherWs.send(JSON.stringify({
-        ...data,
-        senderId: client.id
-      }));
-      break;
-    }
-  }
 }
 
 function broadcastToRoom(ws, client, message) {
